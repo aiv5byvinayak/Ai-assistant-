@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced AI Assistant</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Phosphor Icons for a modern look -->
+    <script src="https://unpkg.com/@phosphor-icons/web@2.0.3/dist/phosphor.js"></script>
+    <style>
+        /* Custom CSS for a clean, modern look */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f8;
+            color: #1f2937;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 0;
+            margin: 0;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            height: 100vh;
+            background-color: #fff;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 80px;
+            /* Space for the fixed input bar */
+            position: relative;
+        }
+
+        .loader-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            transition: opacity 0.5s ease-out;
+        }
+
+        .loader-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loader-spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid #e5e5e5;
+            border-top: 5px solid #2563eb;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 10px 14px;
+            border-radius: 18px;
+            background-color: #e5e7eb;
+            color: #1f2937;
+            align-self: flex-start;
+            border-bottom-left-radius: 0;
+        }
+
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background-color: #1f2937;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.5);
+            }
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .main-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            gap: 24px;
+        }
+
+        .chat-history {
+            justify-content: flex-start;
+            text-align: left;
+        }
+
+        .chat-message {
+            max-width: 90%;
+            padding: 10px 14px;
+            border-radius: 18px;
+            margin-bottom: 12px;
+            word-wrap: break-word;
+            /* Ensure long words break */
+        }
+
+        .user-message {
+            background-color: #e2e8f0;
+            align-self: flex-end;
+            color: #1f2937;
+            border-bottom-right-radius: 0;
+        }
+
+        .ai-message {
+            background-color: #e5e7eb;
+            color: #1f2937;
+            align-self: flex-start;
+            border-bottom-left-radius: 0;
+        }
+
+        .error-message {
+            background-color: #fee2e2;
+            color: #ef4444;
+            align-self: flex-start;
+            border-bottom-left-radius: 0;
+        }
+
+        .input-bar-container {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            max-width: 600px;
+            background-color: #fff;
+            padding: 12px 16px;
+            box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .input-bar {
+            display: flex;
+            align-items: center;
+            background-color: #f7f7f8;
+            border: 1px solid #e5e7eb;
+            border-radius: 20px;
+            padding: 8px 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .input-bar input {
+            flex-grow: 1;
+            border: none;
+            outline: none;
+            background: none;
+            padding: 0 8px;
+            color: #1f2937;
+        }
+
+        .suggestion-btn {
+            border: 1px solid #e5e7eb;
+            background-color: #f7f7f8;
+            transition-property: background-color, color, border-color, box-shadow;
+        }
+
+        .suggestion-btn:hover {
+            background-color: #e5e7eb;
+            border-color: #d1d5db;
+        }
+    </style>
+</head>
+
+<body onload="hideLoadingScreen()">
+
+    <!-- Animated Loading Screen -->
+    <div id="loader-overlay" class="loader-overlay">
+        <div class="loader-spinner"></div>
+    </div>
+
+    <div class="container">
+        <!-- Top Bar -->
+        <div class="flex justify-between items-center p-4 border-b border-gray-200">
+            <button class="text-gray-500 hover:text-gray-900 transition"><i class="ph-list ph-bold text-2xl"></i></button>
+            <div class="flex items-center gap-2">
+                <button class="text-gray-500 hover:text-gray-900 transition"><i class="ph-arrows-out-simple ph-bold text-2xl"></i></button>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div id="main-content" class="main-content">
+            <h1 id="intro-text" class="text-3xl font-semibold text-gray-800">What can I help with?</h1>
+            <div id="suggestion-buttons" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 w-full max-w-sm mx-auto">
+                <button data-command="#image a cat riding a skateboard" class="suggestion-btn text-gray-800 font-semibold py-3 px-2 rounded-xl transition-all flex items-center gap-2 justify-center text-center">
+                    <i class="ph-image-square ph-bold text-xl"></i> Create image
+                </button>
+                <button data-command="#search latest news on AI" class="suggestion-btn text-gray-800 font-semibold py-3 px-2 rounded-xl transition-all flex items-center gap-2 justify-center text-center">
+                    <i class="ph-lightbulb ph-bold text-xl"></i> Find info
+                </button>
+                <button data-command="#search what is quantum computing?" class="suggestion-btn text-gray-800 font-semibold py-3 px-2 rounded-xl transition-all flex items-center gap-2 justify-center text-center">
+                    <i class="ph-chart-bar-horizontal ph-bold text-xl"></i> Explain a topic
+                </button>
+                <button data-command="#chat write a short poem" class="suggestion-btn text-gray-800 font-semibold py-3 px-2 rounded-xl transition-all flex items-center gap-2 justify-center text-center">
+                    <i class="ph-pencil ph-bold text-xl"></i> Write a poem
+                </button>
+                <button data-command="#chat what are the benefits of learning to code?" class="suggestion-btn text-gray-800 font-semibold py-3 px-2 rounded-xl transition-all flex items-center gap-2 justify-center text-center col-span-2 sm:col-span-1">
+                    <i class="ph-graduation-cap ph-bold text-xl"></i> Get advice
+                </button>
+            </div>
+            <!-- Chat history will be inserted here -->
+            <div id="chat-history-container" class="flex flex-col w-full px-4 overflow-y-auto hidden"></div>
+        </div>
+
+        <!-- Bottom Fixed Input Bar -->
+        <div class="input-bar-container">
+            <div class="input-bar">
+                <button id="image-icon-btn" class="text-gray-500 hover:text-gray-900 transition"><i class="ph-image-square ph-bold text-2xl"></i></button>
+                <input type="text" id="user-input" placeholder="Ask anything" class="flex-grow text-sm">
+                <button id="microphone-btn" class="text-gray-500 hover:text-gray-900 transition"><i class="ph-microphone ph-bold text-2xl"></i></button>
+            </div>
+            <p class="text-center text-xs text-gray-500 mt-2">Powered by Vinayak gamer</p>
+        </div>
+    </div>
+
+    <script type="module">
+        // API keys will be provided by the runtime environment.
+        const GEMINI_API_KEY = "AIzaSyAhavtaAqSuFHcOJ--_RUftyV8sXg5wfNI";
+
+        const IMAGEN_API_KEY = "";
+
+        // UI Elements
+        const loaderOverlay = document.getElementById('loader-overlay');
+        const mainContent = document.getElementById('main-content');
+        const introText = document.getElementById('intro-text');
+        const suggestionButtonsContainer = document.getElementById('suggestion-buttons');
+        const chatHistoryContainer = document.getElementById('chat-history-container');
+        const userInput = document.getElementById('user-input');
+        const imageIconButton = document.getElementById('image-icon-btn');
+
+        // Initial UI State
+        let isChatMode = false;
+        let chatHistory = [];
+
+        // Function to hide the global loading screen
+        window.hideLoadingScreen = function() {
+            loaderOverlay.classList.add('hidden');
+        };
+
+        // Function to append a message to the chat history
+        function appendMessage(sender, content, isError = false) {
+            const messageDiv = document.createElement('div');
+            let messageClass = '';
+            if (sender === 'user') {
+                messageClass = 'user-message';
+            } else if (isError) {
+                messageClass = 'error-message';
+            } else {
+                messageClass = 'ai-message';
+            }
+            messageDiv.classList.add('chat-message', messageClass);
+            if (typeof content === 'string') {
+                messageDiv.textContent = content;
+            } else {
+                const img = document.createElement('img');
+                img.src = content;
+                img.classList.add('w-full', 'max-w-xs', 'h-auto', 'rounded-lg', 'shadow-md', 'mt-1');
+                messageDiv.appendChild(img);
+            }
+            chatHistoryContainer.appendChild(messageDiv);
+            chatHistoryContainer.scrollTop = chatHistoryContainer.scrollHeight;
+        }
+
+        // Function to show a typing indicator
+        function showTypingIndicator() {
+            const indicator = document.createElement('div');
+            indicator.id = 'typing-indicator';
+            indicator.classList.add('typing-indicator');
+            indicator.innerHTML = `<span></span><span></span><span></span>`;
+            chatHistoryContainer.appendChild(indicator);
+            chatHistoryContainer.scrollTop = chatHistoryContainer.scrollHeight;
+        }
+
+        // Function to hide the typing indicator
+        function hideTypingIndicator() {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+
+        // Function to handle the start of a chat session
+        function startChatSession() {
+            if (isChatMode) return;
+            isChatMode = true;
+            mainContent.classList.add('chat-history');
+            introText.classList.add('hidden');
+            suggestionButtonsContainer.classList.add('hidden');
+            chatHistoryContainer.classList.remove('hidden');
+        }
+
+        // Generic API fetch function with exponential backoff
+        async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.status === 429 && i < retries - 1) { // Too Many Requests
+                        await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+                        continue;
+                    }
+                    if (!response.ok) {
+                        throw new Error(`API error: ${response.statusText} (${response.status})`);
+                    }
+                    return await response.json();
+                } catch (error) {
+                    console.error(`Fetch attempt ${i + 1} failed:`, error);
+                    if (i < retries - 1) {
+                        await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+                    } else {
+                        throw error;
+                    }
+                }
+            }
+        }
+
+        // Function to get a text response from the Gemini API
+        async function getGeminiResponse(prompt) {
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GEMINI_API_KEY}`;
+            chatHistory.push({
+                role: "user",
+                parts: [{
+                    text: prompt
+                }]
+            });
+            const payload = {
+                contents: chatHistory
+            };
+            try {
+                const result = await fetchWithRetry(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                    chatHistory.push({
+                        role: "model",
+                        parts: [{
+                            text: text
+                        }]
+                    });
+                }
+                return text || "Sorry, I could not get a response.";
+            } catch (error) {
+                return `Error: ${error.message}`;
+            }
+        }
+
+        // Function to generate an image using the Imagen API
+        async function getImagenResponse(prompt) {
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${IMAGEN_API_KEY}`;
+            const payload = {
+                instances: {
+                    prompt: prompt
+                },
+                parameters: {
+                    "sampleCount": 1
+                }
+            };
+            try {
+                const result = await fetchWithRetry(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const base64Data = result?.predictions?.[0]?.bytesBase64Encoded;
+                if (!base64Data) {
+                    throw new Error('No image data received.');
+                }
+                return `data:image/png;base64,${base64Data}`;
+            } catch (error) {
+                return `Error: ${error.message}`;
+            }
+        }
+
+        // Handle sending a message
+        userInput.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter') {
+                let prompt = userInput.value.trim();
+                if (prompt === '') return;
+
+                startChatSession();
+                appendMessage('user', prompt);
+                userInput.value = '';
+                userInput.disabled = true;
+
+                const command = prompt.split(' ')[0].toLowerCase();
+                const text = prompt.substring(command.length).trim();
+
+                showTypingIndicator();
+                let response = null;
+
+                if (command === '#image' && text) {
+                    response = await getImagenResponse(text);
+                    if (response && !response.startsWith('Error:')) {
+                        appendMessage('ai', response);
+                    } else {
+                        appendMessage('ai', response || 'Sorry, I could not generate the image. Please try again.', true);
+                    }
+                } else if (command === '#search' && text) {
+                    response = await getGeminiResponse(`Simulate a web search for: "${text}". Provide a summary of the results with a title and a few key points.`);
+                    if (response && !response.startsWith('Error:')) {
+                        appendMessage('ai', response);
+                    } else {
+                        appendMessage('ai', response || 'Sorry, I could not get a response.', true);
+                    }
+                } else {
+                    response = await getGeminiResponse(prompt);
+                    if (response && !response.startsWith('Error:')) {
+                        appendMessage('ai', response);
+                    } else {
+                        appendMessage('ai', response || 'Sorry, I could not get a response.', true);
+                    }
+                }
+
+                hideTypingIndicator();
+                userInput.disabled = false;
+                chatHistoryContainer.scrollTop = chatHistoryContainer.scrollHeight;
+            }
+        });
+
+        // Handle clicks on suggestion buttons
+        suggestionButtonsContainer.addEventListener('click', (e) => {
+            const button = e.target.closest('button');
+            if (button && button.dataset.command) {
+                const command = button.dataset.command;
+                userInput.value = command;
+                userInput.focus();
+            }
+        });
+
+        // Toggle image generation mode via the icon button
+        imageIconButton.addEventListener('click', () => {
+            const currentText = userInput.value;
+            if (currentText.startsWith('#image')) {
+                userInput.value = '';
+                imageIconButton.classList.remove('text-blue-500');
+            } else {
+                userInput.value = '#image ';
+                imageIconButton.classList.add('text-blue-500');
+            }
+            userInput.focus();
+        });
+    </script>
+</body>
+
+</html>
